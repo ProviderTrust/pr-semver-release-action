@@ -17,3 +17,4 @@ jobs:
       - uses: ./
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          update_major_minor_tags: true
