@@ -19,6 +19,7 @@ on:
     branches:
       - main
 
+
 jobs:
   release_or_label:
     name: ${{ github.event_name == 'push' && 'release_on_push' || 'require_label' }}
