@@ -3,6 +3,9 @@ name: Versioning Action
 description: Verifies labels on PRs and creates semantically versioned releases when PRs are merged
 
 inputs:
+  github_token:
+    description: The GitHub token to use for authentication.
+    required: true
   update_major_minor_tags:
     description: >
       When 'true', the action will update relevant major and minor tags (e.g. v1, v1.2) to point to the newly created
@@ -58,7 +61,7 @@ runs:
       uses: mheap/github-action-required-labels@v2
       if: github.event_name == 'pull_request'
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
       with:
         mode: exactly
         count: 1
@@ -78,7 +81,7 @@ runs:
           && inputs.dry_run_on_pr == 'true'
         )
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
       with:
         bump_version_scheme: norelease
         tag_prefix: ${{ inputs.tag_prefix }}
