@@ -1,0 +1,149 @@
+name: Versioning Action
+
+description: Verifies labels on PRs and creates semantically versioned releases when PRs are merged
+
+inputs:
+  update_major_minor_tags:
+    description: >
+      When 'true', the action will update relevant major and minor tags (e.g. v1, v1.2) to point to the newly created
+      release.
+    required: false
+    default: false
+  tag_prefix:
+    description: Prefix to append to git tags. To unset this, set version_prefix to an empty string.
+    required: false
+    default: v
+  release_name:
+    description: |
+      Name of the release. Supports these template variables:
+      
+        <RELEASE_VERSION> the version number, e.g. "1.2.3"
+        <RELEASE_TAG>     the git tag name, e.g. "v1.2.3"
+    required: false
+    default: <RELEASE_TAG>
+  dry_run:
+    description: When set to 'true', will compute the next tag, but will not create a release.
+    required: false
+    default: false
+  dry_run_on_pr:
+    description: >
+      When set to 'true', will perform a dry run on PR events. Otherwise, does not run release action at all on PR
+      events. When update_major_minor_tags is 'true', a PR dry run will not update tags.
+    required: false
+    default: false
+  no_release_label:
+    description: >
+      Label to apply to PRs that should not trigger a release. If set, PRs with this label will not trigger a release.
+    required: false
+    default: no release
+
+outputs:
+  tag_name:
+    description: Tag of released version. Only available on push events.
+    value: ${{ steps.create-release.outputs.tag_name }}
+  version:
+    description: Version of release. Only available on push events.
+    value: ${{ steps.create-release.outputs.version }}
+  body:
+    description: Github Release Body in Text. Only available on push events.
+    value: ${{ steps.create-release.outputs.body }}
+  upload_url:
+    description: Github Release Upload URL. Only available on push events.
+    value: ${{ steps.create-release.outputs.upload_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Require PR Labels
+      uses: mheap/github-action-required-labels@v2
+      if: github.event_name == 'pull_request'
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        mode: exactly
+        count: 1
+        labels: release:major, release:minor, release:patch, ${{ inputs.no_release_label }}
+
+    - name: Create Release
+      id: create-release
+      uses: rymndhng/release-on-push-action@v0.25.0
+      if: >
+        (
+          always()
+          && github.event_name == 'push'
+        )
+        || (
+          always()
+          && github.event_name == 'pull_request'
+          && inputs.dry_run_on_pr == 'true'
+        )
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        bump_version_scheme: norelease
+        tag_prefix: ${{ inputs.tag_prefix }}
+        release_name: ${{ inputs.release_name }}
+        dry_run: ${{ github.event_name == 'pull_request' && inputs.dry_run_on_pr == 'true' || inputs.dry_run }}
+
+    - name: Output version parts
+      id: version-parts
+      if: >
+        always()
+        && steps.create-release.outcome == 'success'
+        && github.event_name == 'push'
+      env:
+        version: ${{ steps.create-release.outputs.tag_name }}
+      shell: bash
+      run: |
+        clean_version=${version#v}
+        echo "major=$(echo $clean_version | cut -d. -f1)" >> $GITHUB_OUTPUT
+        echo "minor=$(echo $clean_version | cut -d. -f2)" >> $GITHUB_OUTPUT
+        echo "patch=$(echo $clean_version | cut -d. -f3)" >> $GITHUB_OUTPUT
+
+    - name: Update major version tag
+      uses: actions/github-script@v7
+      if: >
+        always()
+        && steps.version-parts.outcome == 'success'
+        && github.event_name == 'push'
+        && inputs.update_major_minor_tags == 'true'
+      with:
+        script: |
+          github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: 'refs/tags/v${{ steps.version-parts.outputs.major }}',
+            sha: context.sha
+          }).catch(err => {
+            if (err.status !== 422) throw err;
+            github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'tags/v${{ steps.version-parts.outputs.major }}',
+              sha: context.sha
+            });
+          });
+
+    - name: Update minor version tag
+      uses: actions/github-script@v7
+      if: >
+        always()
+        && steps.version-parts.outcome == 'success'
+        && github.event_name == 'push'
+        && inputs.update_major_minor_tags == 'true'
+      with:
+        script: |
+          github.rest.git.createRef({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            ref: 'refs/tags/v${{ steps.version-parts.outputs.major }}.${{ steps.version-parts.outputs.minor }}',
+            sha: context.sha
+          }).catch(err => {
+            if (err.status !== 422) throw err;
+            github.rest.git.updateRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: 'tags/v${{ steps.version-parts.outputs.major }}.${{ steps.version-parts.outputs.minor }}',
+              sha: context.sha
+            });
+          });
