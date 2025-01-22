@@ -13,4 +13,5 @@ jobs:
     name: ${{ github.event_name == 'push' && 'release_on_push' || 'require_label' }}
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - uses: ./
