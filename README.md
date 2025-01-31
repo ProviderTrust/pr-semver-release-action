@@ -29,7 +29,7 @@ jobs:
     name: ${{ github.event_name == 'push' && 'release_on_push' || 'require_label' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: ProviderTrust/pr-semver-release-action@v1
+      - uses: 7Factor/pr-semver-release-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           update_major_minor_tags: true # Optional, but recommended for Terraform modules and GitHub Actions
@@ -52,7 +52,7 @@ jobs:
   require_label:
     runs-on: ubuntu-latest
     steps:
-      - uses: ProviderTrust/pr-semver-release-action@v1
+      - uses: 7Factor/pr-semver-release-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
@@ -72,7 +72,7 @@ jobs:
   create_release:
     runs-on: ubuntu-latest
     steps:
-      - uses: ProviderTrust/pr-semver-release-action@v1
+      - uses: 7Factor/pr-semver-release-action@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
